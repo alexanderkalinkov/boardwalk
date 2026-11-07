@@ -7,6 +7,7 @@ This repository is the **web app test build**. It runs in any phone browser and 
 ## What's in it
 
 - **Airports:** Sofia Terminal 2 and Terminal 1, London Heathrow Terminal 5, and Amsterdam Schiphol. Use the airport button (top right) to switch between them.
+- **Around the airport:** car parks, drop-off and pick-up, trains, metro, buses, shuttles, taxi stands and car hire, all searchable with walking routes from inside the terminal.
 - **Live location:** tap the arrow button. GPS finds which airport you're at, and the blue dot follows you. Indoor GPS is rough (often 10–30 m), so the dot is smoothed and kept inside the building. If it's in the wrong place, tap where you really are and choose "I'm actually here"; the correction is remembered for that airport.
 - **Compass:** the cone on the blue dot turns with your phone. On iPhone, Safari asks for motion access the first time you turn on live location.
 - **Map styles:** Apple Maps style on iPhone and Google Maps style on Android. Switch in Settings and privacy, Look.

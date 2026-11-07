@@ -10,7 +10,11 @@ var CAT={
   lounge:{label:'Lounges',color:'--c-lounge',dwell:30},
   service:{label:'Services',color:'--c-service',dwell:3},
   security:{label:'Security',color:'--c-security',dwell:0},
-  mine:{label:'Added by you',color:'--c-mine',dwell:10}
+  mine:{label:'Added by you',color:'--c-mine',dwell:10},
+  transit:{label:'Trains & buses',color:'--c-transit',dwell:0,ground:1},
+  taxi:{label:'Taxis',color:'--c-taxi',dwell:0,ground:1},
+  car:{label:'Drop-off & pick-up',color:'--c-car',dwell:0,ground:1},
+  parking:{label:'Parking',color:'--c-parking',dwell:0,ground:1}
 };
 var ICON={
   food:'M-3-5v4a2 2 0 0 0 4 0v-4M-1-5v10M4-5c-1.5 1-2 3-2 5h2v5',
@@ -20,7 +24,11 @@ var ICON={
   lounge:'M-5 1v-3a2 2 0 0 1 4 0v1h2v-1a2 2 0 0 1 4 0v3M-5 1h10v3M-5 4v1.5M5 4v1.5',
   service:'M0-1v5M0-4.5v.2',
   security:'M0-5.5l4.5 1.8v3.2c0 2.7-2 4.8-4.5 5.4-2.5-.6-4.5-2.7-4.5-5.4v-3.2z',
-  mine:'M-4 0h8M0-4v8'
+  mine:'M-4 0h8M0-4v8',
+  transit:'M-4-5.5h8v8.5h-8zM-4-0.5h8M-2.5 1.5h0M2.5 1.5h0M-3 5.5l1.2-2.5M3 5.5l-1.2-2.5',
+  taxi:'M-1.5-6.5h3v1.6h-3zM-5.5 3v-2.5l1.6-3.4h7.8l1.6 3.4V3zM-4 3v1.8M4 3v1.8',
+  car:'M-5.5 3v-2.5l1.6-3.4h7.8l1.6 3.4V3zM-4 3v1.8M4 3v1.8M-5.5 0.5h11',
+  parking:'M-2.5 5.5v-11h3.2a3.2 3.2 0 0 1 0 6.4h-3.2'
 };
 
 /* ---------- airports ----------
@@ -41,17 +49,20 @@ AIRPORTS.LHR5=(function(){
   return {key:'LHR5',geo:{lat:51.4723,lon:-0.4880,x:200,y:640,rot:270},code:'LHR',city:'London',name:'London Heathrow',term:'Terminal 5',short:'T5',lat:51.4720,lon:-0.4887,carriers:['BA','IB'],
     start:'secN',gateHint:'Terminal 5 gates run A1–A23, B32–B48 and C52–C66.',gateCall:'Heathrow usually shows it about an hour before departure.',
     sample:{carrier:'BA',num:'890',to:'SOF',gate:'B42',seat:'14A'},
-    areas:[{b:'A',name:'T5A',x:0,y:560,w:400,h:160,r:22},{b:'B',name:'T5B',x:-20,y:280,w:440,h:50,r:18},{b:'C',name:'T5C',x:50,y:0,w:300,h:50,r:18}],
-    bnames:{A:'T5A main building',B:'T5B, by transit train',C:'T5C, by transit train'},
-    joins:[{a:[200,640,'A'],b:[200,305,'B'],c:240,t:1},{a:[200,305,'B'],b:[200,25,'C'],c:120,t:1}],
+    areas:[{b:'A',name:'T5A',x:0,y:560,w:400,h:160,r:22},{b:'B',name:'T5B',x:-20,y:280,w:440,h:50,r:18},{b:'C',name:'T5C',x:50,y:0,w:300,h:50,r:18},
+      {b:'L',out:1,x:30,y:722,w:340,h:78,r:6},{b:'L',name:'Frontal building',x:40,y:800,w:320,h:80,r:10}],
+    land:[[-260,726,920,360]],
+    roads:[{pts:[[-260,1040],[-80,930],[480,930],[560,880]],w:20,name:'T5 spur road, from the M25 (J14–15)',lab:[180,930]}],
+    bnames:{A:'T5A main building',B:'T5B, by transit train',C:'T5C, by transit train',L:'Outside T5, landside'},
+    joins:[{a:[200,640,'A'],b:[200,305,'B'],c:240,t:1},{a:[200,305,'B'],b:[200,25,'C'],c:120,t:1},{a:[80,712,'A'],b:[80,740,'L'],c:40},{a:[320,712,'A'],b:[320,740,'L'],c:40}],
     transitLines:[[200,25,200,640]],
     secs:[[42,700,96,16],[272,700,96,16]],
     labels:[{t:'DEPARTURES LOUNGE',x:200,y:654,area:1},{t:'Transit train (underground)',x:208,y:420,small:1}],
-    bigLabels:[['Terminal 5A',200,748],['Terminal 5B',200,374],['Terminal 5C',200,-62]],
-    apron:[[-140,-110,680,900],[-140,790,680,110]],
-    taxi:[[-140,165,540,165],[-140,445,540,445],[-80,-80,480,-80],[-110,-110,-110,790],[510,-110,510,790]],
+    bigLabels:[['Terminal 5A',200,545],['Terminal 5B',200,374],['Terminal 5C',200,-62]],
+    apron:[[-140,-110,680,835]],
+    taxi:[[-140,165,540,165],[-140,445,540,445],[-80,-80,480,-80],[-110,-110,-110,722],[510,-110,510,722]],
     gates:g,
-    sources:[['British Airways: Heathrow T5','https://www.britishairways.com/content/en/us/information/airport-information/london-heathrow-airport/heathrow-t5'],['Upgraded Points: Heathrow terminal guide','https://upgradedpoints.com/travel/airports/london-heathrow-airport-lhr-terminal-guide/'],['Heathrow T5 food guide','https://heathrowairport-info.co.uk/heathrow-food-terminal-5'],['Heathrow Terminal 5 guide','https://heathrowairport-info.co.uk/terminal-5'],['The Points Analyst: Heathrow T5','https://www.thepointsanalyst.com/heathrow-terminal-5/']],
+    sources:[['British Airways: Heathrow T5','https://www.britishairways.com/content/en/us/information/airport-information/london-heathrow-airport/heathrow-t5'],['Upgraded Points: Heathrow terminal guide','https://upgradedpoints.com/travel/airports/london-heathrow-airport-lhr-terminal-guide/'],['Heathrow T5 food guide','https://heathrowairport-info.co.uk/heathrow-food-terminal-5'],['Heathrow Terminal 5 guide','https://heathrowairport-info.co.uk/terminal-5'],['The Points Analyst: Heathrow T5','https://www.thepointsanalyst.com/heathrow-terminal-5/'],['Wikipedia: Heathrow Terminal 5','https://en.wikipedia.org/wiki/Heathrow_Terminal_5'],['Wikipedia: Heathrow Terminal 5 station','https://en.wikipedia.org/wiki/Heathrow_Terminal_5_railway_station']],
     note:'Gates, places and opening hours come from published guides (checked 7 November 2026). The building shapes and positions are a rough schematic.',
     pois:[
  {id:'secN',n:'North Security',c:'security',b:'A',x:80,y:712,loc:'T5A, north end of the security hall',h:'',s:'ba'},
@@ -87,7 +98,13 @@ AIRPORTS.LHR5=(function(){
  {id:'sbB',n:'Starbucks',c:'coffee',b:'B',x:150,y:305,loc:'T5B, B gates',h:'',s:'hf'},
  {id:'wexp',n:'Wetherspoon Express',c:'bar',b:'B',x:250,y:305,loc:'T5B',h:'About 05:30 to the last departure',s:'hf'},
  {id:'galB',n:'Galleries Club Lounge T5B',c:'lounge',b:'B',x:100,y:318,loc:'T5B, near gate B36',h:'05:30–22:30',s:'ba'},
- {id:'sbC',n:'Starbucks',c:'coffee',b:'C',x:250,y:25,loc:'T5C, C gates',h:'',s:'hf'}
+ {id:'sbC',n:'Starbucks',c:'coffee',b:'C',x:250,y:25,loc:'T5C, C gates',h:'',s:'hf'},
+      T('lhrstn','Heathrow Terminal 5 station','transit','L',200,760,'Beneath the terminal, entrance in the courtyard · Heathrow Express, Elizabeth line, Piccadilly line','Express to Paddington 21 min, every 15 min','stn'),
+      T('lhrpod','Pod to the business car park','transit','L',350,760,'Driverless pods, about 4 km','','t5w'),
+      T('lhrdrop','Drop-off (level 5)','car','L',110,822,'Departures level of the frontal building, skybridges into T5','','t5w'),
+      T('lhrpark','Short stay car park','parking','L',290,822,'Levels 1–4 of the frontal building · 3,800 spaces','','t5w'),
+      T('lhrbus','Bus and coach station','transit','L',110,860,'Ground level of the frontal building · 350, 423, 482, 490, N9, National Express','','t5w'),
+      T('lhrtaxi','Taxi rank','taxi','L',290,860,'Ground level of the frontal building, next to the bus station','','t5w')
 ]};
 })();
 
@@ -102,15 +119,20 @@ AIRPORTS.SOF2=(function(){
   return {key:'SOF2',geo:{lat:42.6883,lon:23.4144,x:190,y:300,rot:0},code:'SOF',city:'Sofia',name:'Sofia Airport',term:'Terminal 2',short:'T2',lat:42.6883,lon:23.4144,carriers:null,
     start:'s2sec',gateHint:'Terminal 2 gates are A1, B1–B14 (with B6A), C1 and D1.',gateCall:'Sofia usually shows it on the screens about an hour before departure.',
     sample:{carrier:'BA',num:'891',to:'LHR',gate:'B7',seat:'14A'},
-    areas:[{b:'S',name:'Airside',x:0,y:190,w:380,h:110,r:18},{b:'L',name:'Landside',x:30,y:320,w:320,h:90,r:14}],
+    areas:[{b:'S',name:'Airside',x:0,y:190,w:380,h:110,r:18},{b:'L',name:'Landside',x:30,y:320,w:320,h:90,r:14},
+      {b:'L',out:1,x:30,y:410,w:400,h:30,r:4},{b:'L',out:1,x:350,y:350,w:80,h:60,r:4},{b:'L',out:1,x:120,y:440,w:40,h:40,r:2}],
+    land:[[-260,306,940,360]],
+    roads:[{pts:[[-260,455],[470,455],[470,610]],w:16,name:'Terminal 2 forecourt',lab:[-120,455]},{pts:[[-260,610],[680,610]],w:22,name:'Brussels Blvd',lab:[-100,610]},{pts:[[-180,455],[-180,610]],w:12}],
+    lots:[{x:60,y:480,w:180,h:80,name:'P · multi-storey, 820 spaces',multi:1}],
+    rails:[[[430,380],[680,380]]],
     bnames:{S:'T2 departures, airside',L:'T2 check-in hall, before security'},
     joins:[{a:[190,314,'L'],b:[190,296,'S'],c:120}],
     secs:[[130,302,120,16]],
-    labels:[{t:'DEPARTURES · AIRSIDE',x:190,y:262,area:1},{t:'CHECK-IN · 38 DESKS',x:190,y:380,area:1},{t:'Metro station (east side)',x:350,y:430,small:1}],
-    bigLabels:[['Terminal 2',190,455]],
+    labels:[{t:'DEPARTURES · AIRSIDE',x:190,y:262,area:1},{t:'CHECK-IN · 38 DESKS',x:190,y:380,area:1},{t:'Metro M4 to the city',x:560,y:372,small:1}],
+    bigLabels:[['Terminal 2',190,505]],
     gates:g,
-    sources:[['Sleeping in Airports: Sofia guide','https://www.sleepinginairports.net/guides/sofia-airport-guide.htm'],['Exciting Bulgaria: Sofia Airport','https://excitingbulgaria.com/sofia-airport/'],['Cestee: services at Sofia Airport','https://www.cestee.com/airport/sofia-sof/services'],['VisaVerge: new dining at Terminal 2 (2025)','https://www.visaverge.com/news/sofia-airport-launches-new-dining-outlets-at-terminal-2/'],['Moodie Davitt: Sofia duty free (2026)','https://moodiedavittreport.com/sofia-airport-chief-shares-vision-as-avolta-reveals-duty-free-store-and-italian-dining-concept/'],['FlightQueue: Sofia gates','https://flightqueue.com/sofia-airport-terminal-map'],['Wikipedia: Sofia Airport','https://en.wikipedia.org/wiki/Sofia_Airport']],
-    note:'Gate names come from FlightQueue; Wikipedia lists the air bridges as A1, B5–B9 and C1, so the rest are drawn as bus gates. Places come from the guides listed (checked 7 November 2026). The official airport site could not be read, so the floor plan is a rough schematic to check in person.',
+    sources:[['Sleeping in Airports: Sofia guide','https://www.sleepinginairports.net/guides/sofia-airport-guide.htm'],['Exciting Bulgaria: Sofia Airport','https://excitingbulgaria.com/sofia-airport/'],['Cestee: services at Sofia Airport','https://www.cestee.com/airport/sofia-sof/services'],['VisaVerge: new dining at Terminal 2 (2025)','https://www.visaverge.com/news/sofia-airport-launches-new-dining-outlets-at-terminal-2/'],['Moodie Davitt: Sofia duty free (2026)','https://moodiedavittreport.com/sofia-airport-chief-shares-vision-as-avolta-reveals-duty-free-store-and-italian-dining-concept/'],['FlightQueue: Sofia gates','https://flightqueue.com/sofia-airport-terminal-map'],['Wikipedia: Sofia Airport','https://en.wikipedia.org/wiki/Sofia_Airport'],['Wikipedia: Sofia Airport metro station','https://en.wikipedia.org/wiki/Sofia_Airport_Metro_Station']],
+    note:'Outside the terminal: metro, buses, shuttle, taxi, car park and car hire come from the guides listed; where to drop off and pick up isn’t published, so that pin is a best guess. Gate names come from FlightQueue; Wikipedia lists the air bridges as A1, B5–B9 and C1, so the rest are drawn as bus gates. Places come from the guides listed (checked 7 November 2026). The official airport site could not be read, so the floor plan is a rough schematic to check in person.',
     pois:[
       T('s2sec','Security','security','S',190,296,'Between the check-in hall and departures','','sia'),
       T('s2df','Sofia Duty Free','shop','S',190,280,'Walk-through store right after security, about 2,000 m²','','mdr'),
@@ -132,7 +154,14 @@ AIRPORTS.SOF2=(function(){
       T('s2pharm','Pharmacy','service','L',300,345,'Public area, before security','08:30–19:30','ces'),
       T('s2post','Post office','service','L',60,390,'Departures, before security','','sia'),
       T('s2wrap','Luggage wrapping','service','L',120,395,'Departures, before security','','sia'),
-      T('s2atm','ATMs','service','L',320,395,'Public area · Postbank has no fee','','ces')
+      T('s2atm','ATMs','service','L',320,395,'Public area · Postbank has no fee','','ces'),
+      T('s2rent','Car rental desks','service','L',250,368,'Arrivals hall · Sixt, Avis, Enterprise, Hertz, Budget, Europcar, Thrifty','','eb'),
+      T('s2metro','Metro station','transit','L',400,380,'Next to T2 on the east side, on your left as you walk out','About 05:00–24:00 · about 20 min to the centre','metro'),
+      T('s2bus','Bus stop · 84, 184, 384','transit','L',70,428,'In front of the terminal · 84 and 184 also stop at T1','No night buses','eb'),
+      T('s2shuttle','Free shuttle to Terminal 1','transit','L',180,428,'In front of the terminal · about 5 min, no stops','Every 15 min, 05:00–23:00','eb'),
+      T('s2drop','Drop-off and pick-up','car','L',240,428,'Departures kerb in front of the terminal · rules and fees aren’t published online, check on site','','eb'),
+      T('s2taxi','Taxi stand (Yellow!)','taxi','L',310,428,'Outside arrivals · follow the yellow path','Licensed airport taxi since 2023','eb'),
+      T('s2park','Car park (multi-storey)','parking','L',140,470,'Across the forecourt road · 820 spaces with lifts','Paid, 24/7','eb')
     ]};
 })();
 
@@ -143,15 +172,19 @@ AIRPORTS.SOF1=(function(){
   return {key:'SOF1',geo:{lat:42.6952,lon:23.3984,x:120,y:210,rot:0},code:'SOF',city:'Sofia',name:'Sofia Airport',term:'Terminal 1',short:'T1',lat:42.6952,lon:23.3984,carriers:['W6','W4','U2','5W'],
     start:'s1sec',gateHint:'This sketch shows gates 1–7.',gateCall:'Sofia usually shows it on the screens about an hour before departure.',
     sample:{carrier:'W6',num:'4301',to:'LTN',gate:'3',seat:'7C'},
-    areas:[{b:'S',name:'Airside',x:0,y:120,w:240,h:90,r:16},{b:'L',name:'Landside',x:20,y:230,w:200,h:70,r:12}],
+    areas:[{b:'S',name:'Airside',x:0,y:120,w:240,h:90,r:16},{b:'L',name:'Landside',x:20,y:230,w:200,h:70,r:12},
+      {b:'L',out:1,x:10,y:300,w:240,h:30,r:4},{b:'L',out:1,x:100,y:330,w:40,h:30,r:2}],
+    land:[[-240,216,720,320]],
+    roads:[{pts:[[-240,345],[440,345]],w:16,name:'Terminal 1 forecourt',lab:[-110,345]},{pts:[[-240,500],[480,500]],w:22,name:'Brussels Blvd',lab:[-90,500]},{pts:[[-160,345],[-160,500]],w:12},{pts:[[360,345],[360,500]],w:12}],
+    lots:[{x:30,y:362,w:190,h:90,name:'P · outdoor, about 400 spaces'}],
     bnames:{S:'T1 departures, airside',L:'T1 check-in hall, before security'},
     joins:[{a:[120,224,'L'],b:[120,206,'S'],c:120}],
     secs:[[70,212,100,16]],
-    labels:[{t:'DEPARTURES · BUS GATES',x:120,y:178,area:1},{t:'CHECK-IN',x:120,y:280,area:1},{t:'Free shuttle to T2 every 15 min',x:120,y:330,small:1}],
-    bigLabels:[['Terminal 1',120,352]],
+    labels:[{t:'DEPARTURES · BUS GATES',x:120,y:178,area:1},{t:'CHECK-IN',x:120,y:280,area:1},{t:'T2 is about 2 km east',x:330,y:330,small:1}],
+    bigLabels:[['Terminal 1',120,474]],
     gates:g,
     sources:[['Exciting Bulgaria: Sofia Airport','https://excitingbulgaria.com/sofia-airport/'],['Sleeping in Airports: Sofia guide','https://www.sleepinginairports.net/guides/sofia-airport-guide.htm'],['Cestee: services at Sofia Airport','https://www.cestee.com/airport/sofia-sof/services'],['Moodie Davitt: Sofia duty free and Amo (2026)','https://moodiedavittreport.com/sofia-airport-chief-shares-vision-as-avolta-reveals-duty-free-store-and-italian-dining-concept/'],['AirportMaps: Sofia terminals','https://airportmaps.com/SOF'],['LoungeReview: Sofia Lounge','https://loungereview.com/lounges/sofia-lounge-sof/']],
-    note:'No public source lists Terminal 1 gate numbers, only “opposite gate 1” for the lounge, so gates 1–7 are placeholders. Terminal 1 has no air bridges. Places come from the guides listed (checked 7 November 2026). The floor plan is a rough schematic to check in person.',
+    note:'Outside the terminal: buses, the shuttle, taxi and car park come from the guides listed; where to drop off and pick up isn’t published, so that pin is a best guess. No public source lists Terminal 1 gate numbers, only “opposite gate 1” for the lounge, so gates 1–7 are placeholders. Terminal 1 has no air bridges. Places come from the guides listed (checked 7 November 2026). The floor plan is a rough schematic to check in person.',
     pois:[
       T('s1sec','Security','security','S',120,206,'Between check-in and departures','','eb'),
       T('s1df','Sofia Duty Free','shop','S',120,192,'Walk-through store after security, about 1,200 m²','','mdr'),
@@ -167,7 +200,13 @@ AIRPORTS.SOF1=(function(){
       T('s1costa','Costa Coffee','coffee','L',60,255,'Public area, before security','05:00–23:00','ces'),
       T('s1post','Post office','service','L',170,255,'Departures, before security','','sia'),
       T('s1wrap','Luggage wrapping','service','L',190,280,'Departures, before security','','sia'),
-      T('s1atm','Postbank ATM','service','L',40,282,'Public area · no fee','','ces')
+      T('s1atm','Postbank ATM','service','L',40,282,'Public area · no fee','','ces'),
+      T('s1rent','Car rental desks','service','L',110,262,'Arrivals · Top Rent-A-Car, Europcar, Choice, Easyrent, SurPrice','','eb'),
+      T('s1bus','Bus stop · 84, 184','transit','L',30,318,'In front of the terminal','No night buses','eb'),
+      T('s1shuttle','Free shuttle to Terminal 2 and metro','transit','L',80,318,'In front of the terminal · about 5 min to T2, where the metro is','Every 15 min, 05:00–23:00','eb'),
+      T('s1drop','Drop-off and pick-up','car','L',160,318,'Kerb in front of the terminal · rules and fees aren’t published online, check on site','','eb'),
+      T('s1taxi','Taxi stand (Yellow!)','taxi','L',220,318,'Outside the terminal','Licensed airport taxi since 2023','eb'),
+      T('s1park','Car park (outdoor)','parking','L',120,352,'Across the forecourt road · about 400 spaces','Paid, 24/7','eb')
     ]};
 })();
 
@@ -179,6 +218,8 @@ AIRPORTS.AMS=(function(){
   var areas=[{b:'M',name:'Lounges',x:0,y:300,w:620,h:60,r:14},{b:'M',name:'Pier D',x:350,y:30,w:60,h:280,r:12}];
   piers.forEach(function(p){areas.push({b:'M',name:'Pier '+p[0],x:p[1]-p[2]/2,y:300-p[3],w:p[2],h:p[3]+10,r:12,planes:'LR'});});
   areas.push({b:'L',name:'Departure halls',x:40,y:380,w:540,h:56,r:12});
+  areas.push({b:'L',name:'Schiphol Plaza',x:190,y:436,w:240,h:64,r:10});
+  areas.push({b:'L',out:1,x:100,y:500,w:440,h:30,r:4});
   return {key:'AMS',geo:{lat:52.3105,lon:4.7633,x:310,y:330,rot:320},code:'AMS',city:'Amsterdam',name:'Amsterdam Schiphol',term:'Lounges 1–3',short:'Schiphol',lat:52.3105,lon:4.7683,carriers:null,
     start:'amsec1',gateHint:'This prototype maps gates D1–D16 only.',gateCall:'Schiphol usually shows it about an hour before departure.',
     sample:{carrier:'KL',num:'1999',to:'SOF',gate:'D7',seat:'21F'},
@@ -188,11 +229,14 @@ AIRPORTS.AMS=(function(){
     secs:[[430,362,80,14],[260,362,80,14],[90,362,80,14]],
     labels:[{t:'LOUNGE 1 · SCHENGEN',x:520,y:334,area:1},{t:'LOUNGE 2',x:300,y:334,area:1},{t:'LOUNGE 3',x:110,y:334,area:1},{t:'Passport control',x:430,y:296,small:1},
       {t:'Pier B',x:555,y:140,small:1},{t:'Pier C',x:485,y:120,small:1},{t:'Pier E',x:270,y:100,small:1},{t:'Pier F',x:190,y:120,small:1},{t:'Pier G',x:110,y:120,small:1},{t:'Pier H/M',x:30,y:170,small:1},
-      {t:'HALL 1',x:470,y:420,area:1},{t:'HALL 2',x:300,y:420,area:1},{t:'HALL 3',x:130,y:420,area:1}],
-    bigLabels:[['Schiphol',310,470]],
+      {t:'HALL 1',x:470,y:420,area:1},{t:'HALL 2',x:300,y:420,area:1},{t:'HALL 3',x:130,y:420,area:1},{t:'Railway (underground)',x:640,y:462,small:1}],
+    bigLabels:[['Schiphol Plaza',310,580]],
+    land:[[-150,444,920,190]],
+    roads:[{pts:[[-150,546],[770,546]],w:18,name:'Arrivals and departures road',lab:[20,546]}],
+    rails:[[[-150,470],[770,470]]],
     gates:g,
-    sources:[['Sleeping in Airports: Amsterdam guide','https://www.sleepinginairports.net/guides/amsterdam-airport-guide.htm'],['Wikipedia: Amsterdam Airport Schiphol','https://en.wikipedia.org/wiki/Amsterdam_Airport_Schiphol'],['Schiphol: shopping','https://www.schiphol.nl/en/at-schiphol/']],
-    note:'Places and hours come from the guides listed (checked 7 November 2026). Sources disagree on whether Piers D and M are Schengen. Only gates D1–D16 are drawn, and the other piers are outlines. Rough schematic.',
+    sources:[['Sleeping in Airports: Amsterdam guide','https://www.sleepinginairports.net/guides/amsterdam-airport-guide.htm'],['Wikipedia: Amsterdam Airport Schiphol','https://en.wikipedia.org/wiki/Amsterdam_Airport_Schiphol'],['Schiphol: shopping','https://www.schiphol.nl/en/at-schiphol/'],['Wikipedia: Schiphol Airport station','https://en.wikipedia.org/wiki/Schiphol_Airport_railway_station']],
+    note:'Places and hours come from the guides listed (checked 7 November 2026). Car parks and the drop-off and pick-up zones aren’t mapped yet because no readable source gave their positions. Sources disagree on whether Piers D and M are Schengen. Only gates D1–D16 are drawn, and the other piers are outlines. Rough schematic.',
     pois:[
       T('amsec1','Security, Hall 1','security','M',470,356,'From Departure Hall 1 (mainly Schengen)','','wiki'),
       T('amsec2','Security, Hall 2','security','M',300,356,'From Departure Hall 2','','wiki'),
@@ -221,7 +265,11 @@ AIRPORTS.AMS=(function(){
       T('ambulg','Bvlgari','shop','M',540,342,'After security','','sch'),
       T('amvs','Victoria’s Secret','shop','M',400,342,'Before and after security','','sch'),
       T('amde','Douwe Egberts Coffee Bar','coffee','L',130,400,'Departure Hall 3, before security','24 hours','sia'),
-      T('amprivcl','Privium ClubLounge','lounge','L',390,400,'Between Halls 1 and 2, near check-in row 9','05:30–21:00','sia')
+      T('amprivcl','Privium ClubLounge','lounge','L',390,400,'Between Halls 1 and 2, near check-in row 9','05:30–21:00','sia'),
+      T('amstn','Schiphol station','transit','L',310,470,'Level −1, beneath Schiphol Plaza · escalators and lifts from the Plaza','Amsterdam Centraal 15–20 min, every 10–15 min; hourly at night','sia'),
+      T('amrent','Car rental desks','service','L',400,476,'Schiphol Plaza, behind Arrivals 3 · Avis, Budget, Enterprise, Europcar, Hertz, Sixt','','sia'),
+      T('ambus','Bus station · Schiphol Plaza','transit','L',200,515,'In front of the terminal · many lines, plus night buses N30, N70, N90, N97','','wiki'),
+      T('amtaxi','Taxi rank','taxi','L',420,515,'In front of Schiphol Plaza, Arrivals level 0','€45–60 to the centre, 15–25 min','sia')
     ]};
 })();
 var AIRPORT_LIST=['SOF2','SOF1','LHR5','AMS'];

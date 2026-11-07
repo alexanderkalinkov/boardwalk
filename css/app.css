@@ -6,7 +6,7 @@
   --accent:#007AFF; --accent-ink:#0062CC; --on-accent:#FFFFFF;
   --green:#1F7A37; --green-bg:#E3F5E8; --orange:#8A4B00; --orange-bg:#FFF1DC; --red:#B3261E; --red-bg:#FDECEA;
   --map-bg:#EFEDE8; --apron:#E6E3DD; --grass:#D9E8C6; --taxi:#E9C46A; --plane:#C9C6BF; --bridge:#D4D0C8; --bldg:#E4DFD7; --walk:#FBFAF7; --halo:#FBFAF7; --bldg-stroke:#CFC8BC; --map-label:#55555B; --gate:#EEF0F3; --gate-ink:#3A3A3F; --dest:#1C1C1E; --dest-ink:#FFFFFF;
-  --c-food:#E07700; --c-coffee:#9A5B2E; --c-bar:#C2185B; --c-lounge:#7B4BC9; --c-service:#0A7C8C; --c-security:#55606E; --c-mine:#2E7D32; --c-shop:#2F6FD0;
+  --c-food:#E07700; --c-coffee:#9A5B2E; --c-bar:#C2185B; --c-lounge:#7B4BC9; --c-service:#0A7C8C; --c-security:#55606E; --c-mine:#2E7D32; --c-shop:#2F6FD0; --c-transit:#0B7A55; --c-taxi:#9A6A00; --c-car:#6A4FC0; --c-parking:#2457A6; --road:#FFFFFF; --road-case:#D6D3CC; --land:#ECEAE4; --paved:#F6F4EF; --lot:#E3E5EA;
   --shadow:0 8px 24px rgba(0,0,0,.12);
   --sans:-apple-system,"SF Pro Text","SF Pro Display",system-ui,"Helvetica Neue",Arial,sans-serif;
   --round:"SF Pro Rounded",-apple-system,system-ui,"Helvetica Neue",Arial,sans-serif;
@@ -18,7 +18,7 @@
   --accent:#0A84FF; --accent-ink:#5AB0FF; --on-accent:#FFFFFF;
   --green:#30D158; --green-bg:rgba(48,209,88,.18); --orange:#FFB340; --orange-bg:rgba(255,159,10,.18); --red:#FF6961; --red-bg:rgba(255,69,58,.18);
   --map-bg:#16181B; --apron:#1E2125; --grass:#1C2619; --taxi:#8A7330; --plane:#4A4E55; --bridge:#3D4148; --bldg:#2B2E34; --walk:#383C43; --halo:#26292E; --bldg-stroke:#454A52; --map-label:#B4B8C0; --gate:#3A3E46; --gate-ink:#E5E5EA; --dest:#FFFFFF; --dest-ink:#000000;
-  --c-food:#FF9F0A; --c-coffee:#C58B5C; --c-bar:#FF5C8A; --c-lounge:#B18CFF; --c-service:#40C8E0; --c-security:#8E99A8; --c-mine:#5BD65F; --c-shop:#64A0FF;
+  --c-food:#FF9F0A; --c-coffee:#C58B5C; --c-bar:#FF5C8A; --c-lounge:#B18CFF; --c-service:#40C8E0; --c-security:#8E99A8; --c-mine:#5BD65F; --c-shop:#64A0FF; --c-transit:#3DD598; --c-taxi:#F2C14E; --c-car:#A894FF; --c-parking:#7FA8FF; --road:#4A4F57; --road-case:#2A2D33; --land:#1B1D21; --paved:#24272C; --lot:#2C3138;
   --shadow:0 8px 24px rgba(0,0,0,.5); color-scheme:dark; } }
 :root[data-theme="dark"]{
   --outer:#0B0B0C; --bg:#000000; --surface:#1C1C1E; --fg:#FFFFFF; --fg2:#D1D1D6; --fg3:#AEAEB2;
@@ -27,7 +27,7 @@
   --accent:#0A84FF; --accent-ink:#5AB0FF; --on-accent:#FFFFFF;
   --green:#30D158; --green-bg:rgba(48,209,88,.18); --orange:#FFB340; --orange-bg:rgba(255,159,10,.18); --red:#FF6961; --red-bg:rgba(255,69,58,.18);
   --map-bg:#16181B; --apron:#1E2125; --grass:#1C2619; --taxi:#8A7330; --plane:#4A4E55; --bridge:#3D4148; --bldg:#2B2E34; --walk:#383C43; --halo:#26292E; --bldg-stroke:#454A52; --map-label:#B4B8C0; --gate:#3A3E46; --gate-ink:#E5E5EA; --dest:#FFFFFF; --dest-ink:#000000;
-  --c-food:#FF9F0A; --c-coffee:#C58B5C; --c-bar:#FF5C8A; --c-lounge:#B18CFF; --c-service:#40C8E0; --c-security:#8E99A8; --c-mine:#5BD65F; --c-shop:#64A0FF;
+  --c-food:#FF9F0A; --c-coffee:#C58B5C; --c-bar:#FF5C8A; --c-lounge:#B18CFF; --c-service:#40C8E0; --c-security:#8E99A8; --c-mine:#5BD65F; --c-shop:#64A0FF; --c-transit:#3DD598; --c-taxi:#F2C14E; --c-car:#A894FF; --c-parking:#7FA8FF; --road:#4A4F57; --road-case:#2A2D33; --land:#1B1D21; --paved:#24272C; --lot:#2C3138;
   --shadow:0 8px 24px rgba(0,0,0,.5); color-scheme:dark; }
 
 html,body{height:100%}
@@ -68,7 +68,7 @@ button{cursor:pointer}
 /* Android / Google Maps look */
 .phone.g{--sans:Roboto,"Google Sans",system-ui,Arial,sans-serif;--round:"Google Sans",Roboto,system-ui,Arial,sans-serif;--accent:#1A73E8;--accent-ink:#1A73E8;
   --map-bg:#F8F9FA;--apron:#EEF0F2;--grass:#CEEAD6;--taxi:#FBBC04;--plane:#DADCE0;--bridge:#DADCE0;--bldg:#E8EAED;--walk:#FFFFFF;--halo:#FFFFFF;--bldg-stroke:#C4C7CC;--map-label:#3C4043;
-  --c-food:#E8710A;--c-coffee:#A15C2F;--c-bar:#D01884;--c-lounge:#8430CE;--c-service:#129EAF;--c-security:#5F6368;--c-mine:#188038;--c-shop:#1A73E8;--gate:#FFFFFF;--gate-ink:#3C4043}
+  --c-food:#E8710A;--c-coffee:#A15C2F;--c-bar:#D01884;--c-lounge:#8430CE;--c-service:#129EAF;--c-security:#5F6368;--c-mine:#188038;--c-shop:#1A73E8;--c-transit:#188038;--c-taxi:#B06000;--c-car:#7B5CD6;--c-parking:#1967D2;--road:#FFFFFF;--road-case:#DADCE0;--land:#F1F3F4;--paved:#FFFFFF;--lot:#E8EAED;--gate:#FFFFFF;--gate-ink:#3C4043}
 @media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .phone.g{--accent:#8AB4F8;--accent-ink:#8AB4F8;--map-bg:#1F2124;--apron:#26282B;--grass:#1E2B22;--taxi:#8A6D1D;--plane:#45484D;--bridge:#3C4043;--bldg:#303134;--walk:#3C4043;--halo:#303134;--bldg-stroke:#5F6368;--map-label:#E8EAED;--gate:#303134;--gate-ink:#E8EAED}}
 :root[data-theme="dark"] .phone.g{--accent:#8AB4F8;--accent-ink:#8AB4F8;--map-bg:#1F2124;--apron:#26282B;--grass:#1E2B22;--taxi:#8A6D1D;--plane:#45484D;--bridge:#3C4043;--bldg:#303134;--walk:#3C4043;--halo:#303134;--bldg-stroke:#5F6368;--map-label:#E8EAED;--gate:#303134;--gate-ink:#E8EAED}
 .phone.g .glass{-webkit-backdrop-filter:none;backdrop-filter:none;background:var(--surface);border-color:transparent;box-shadow:0 1px 3px rgba(60,64,67,.3),0 4px 8px 3px rgba(60,64,67,.15)}
@@ -196,3 +196,15 @@ button{cursor:pointer}
 #btnLocate.follow{background:var(--accent)}
 #btnLocate.follow svg path{fill:var(--on-accent)}
 #map .cone{transition:transform .15s linear}
+
+/* ground side */
+#map .land{fill:var(--land)}
+#map .road{stroke:var(--road);fill:none;stroke-linecap:round;stroke-linejoin:round}
+#map .road-case{stroke:var(--road-case);fill:none;stroke-linecap:round;stroke-linejoin:round}
+#map .paved{fill:var(--paved);stroke:var(--bldg-stroke);stroke-width:.8px;vector-effect:non-scaling-stroke}
+#map .lot{fill:var(--lot);stroke:var(--bldg-stroke);stroke-width:.8px;vector-effect:non-scaling-stroke}
+#map .lotm{fill:var(--bldg);stroke:var(--bldg-stroke);stroke-width:1.2px;vector-effect:non-scaling-stroke}
+#map .stall{stroke:var(--bldg-stroke);stroke-width:.7px;vector-effect:non-scaling-stroke}
+#map .rail{stroke:var(--fg3);stroke-width:2px;stroke-dasharray:8 4;fill:none;opacity:.5;vector-effect:non-scaling-stroke}
+#map .lotname{fill:var(--c-parking);font-weight:700}
+#map .roadname{fill:var(--map-label);opacity:.8}

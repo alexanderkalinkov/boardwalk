@@ -26,7 +26,8 @@ function loadAirport(key){
     for(var x=Math.ceil((a.x+6)/STEP)*STEP;x<=a.x+a.w-6;x+=STEP)for(var y=Math.ceil((a.y+6)/STEP)*STEP;y<=a.y+a.h-6;y+=STEP){
       var id='n'+a.b+'_'+x+'_'+y;if(seen[id])continue;seen[id]=1;addN(id,x,y,a.b);BASE.push(id);}
   });
-  BASE.forEach(function(id){var n=N[id];[[STEP,0],[0,STEP]].forEach(function(d){var o='n'+n.b+'_'+(n.x+d[0])+'_'+(n.y+d[1]);if(N[o])link(id,o);});});
+  // link grid neighbours; bridge a one-cell gap where two areas of the same kind meet (e.g. a door to the pavement)
+  BASE.forEach(function(id){var n=N[id];[[STEP,0],[0,STEP]].forEach(function(d){var o='n'+n.b+'_'+(n.x+d[0])+'_'+(n.y+d[1]);if(N[o])link(id,o);else{o='n'+n.b+'_'+(n.x+2*d[0])+'_'+(n.y+2*d[1]);if(N[o])link(id,o);}});});
   (AP.joins||[]).forEach(function(j,i){var a='ja'+i,b='jb'+i;attach(a,j.a[0],j.a[1],j.a[2]);attach(b,j.b[0],j.b[1],j.b[2]);link(a,b,j.c,j.t);});
   GATES.forEach(function(g){attach('g'+g.id,g.x,g.y,g.b);});
   POIS.forEach(function(p){attach('p'+p.id,p.x,p.y,p.b);});
@@ -107,7 +108,7 @@ function buildMap(){
   el('rect',{x:-3000,y:-3000,width:7000,height:7000,fill:'var(--map-bg)'},svg);
   gWorld=el('g',{},svg);
   // airfield: grass, apron, taxiway centre lines (per airport, or drawn around the buildings)
-  var bb=[1e9,1e9,-1e9,-1e9];BUILDINGS.forEach(function(a){bb[0]=Math.min(bb[0],a.x);bb[1]=Math.min(bb[1],a.y);bb[2]=Math.max(bb[2],a.x+a.w);bb[3]=Math.max(bb[3],a.y+a.h);});
+  var bb=[1e9,1e9,-1e9,-1e9];BUILDINGS.forEach(function(a){if(a.out||a.b==='L')return;bb[0]=Math.min(bb[0],a.x);bb[1]=Math.min(bb[1],a.y);bb[2]=Math.max(bb[2],a.x+a.w);bb[3]=Math.max(bb[3],a.y+a.h);});
   el('rect',{x:bb[0]-900,y:bb[1]-900,width:bb[2]-bb[0]+1800,height:bb[3]-bb[1]+1800,class:'grass'},gWorld);
   (AP.apron||[[bb[0]-120,bb[1]-110,bb[2]-bb[0]+240,bb[3]-bb[1]+150]]).forEach(function(r){el('rect',{x:r[0],y:r[1],width:r[2],height:r[3],rx:30,class:'apron'},gWorld);});
   (AP.taxi||[[bb[0]-120,bb[1]-80,bb[2]+120,bb[1]-80],[bb[0]-90,bb[1]-110,bb[0]-90,bb[3]+40],[bb[2]+90,bb[1]-110,bb[2]+90,bb[3]+40]]).forEach(function(l){el('line',{x1:l[0],y1:l[1],x2:l[2],y2:l[3],class:'taxi'},gWorld);});
@@ -119,13 +120,23 @@ function buildMap(){
     var cx=g.x+dx*off,cy=g.y+dy*off;el('path',{d:PLANE,class:'plane',transform:'translate('+cx+' '+cy+') rotate('+rot+') scale(1.15)'},gWorld);});
   // decorative stands along piers whose gates aren't mapped yet
   BUILDINGS.forEach(function(a){if(!a.planes)return;for(var y=a.y+16;y<a.y+a.h-20;y+=34){el('path',{d:PLANE,class:'plane',transform:'translate('+(a.x-26)+' '+y+') rotate(90) scale(1.15)'},gWorld);el('path',{d:PLANE,class:'plane',transform:'translate('+(a.x+a.w+26)+' '+y+') rotate(-90) scale(1.15)'},gWorld);}});
+  // ground side: landside land, roads, car parks, pavements
+  (AP.land||[]).forEach(function(r){el('rect',{x:r[0],y:r[1],width:r[2],height:r[3],rx:20,class:'land'},gWorld);});
+  (AP.lots||[]).forEach(function(l){el('rect',{x:l.x,y:l.y,width:l.w,height:l.h,rx:l.multi?6:4,class:l.multi?'lotm':'lot'},gWorld);
+    if(!l.multi){for(var y=l.y+8;y<l.y+l.h-4;y+=12)el('line',{x1:l.x+4,y1:y,x2:l.x+l.w-4,y2:y,class:'stall'},gWorld);}
+    var t=el('text',{x:l.x+l.w/2,y:l.y+l.h/2+3,'text-anchor':'middle','font-size':9,class:'halo lbl1 lotname'},gWorld);t.textContent=l.name;});
+  (AP.roads||[]).forEach(function(r){var pts=r.pts.map(function(p){return p.join(',');}).join(' ');
+    el('polyline',{points:pts,class:'road-case',style:'stroke-width:'+(r.w+3)+'px'},gWorld);el('polyline',{points:pts,class:'road',style:'stroke-width:'+r.w+'px'},gWorld);
+    if(r.name){var m=r.lab||r.pts[0];var t=el('text',{x:m[0],y:m[1]+3,'text-anchor':'middle','font-size':8,class:'halo lbl1 roadname'},gWorld);t.textContent=r.name;}});
+  BUILDINGS.forEach(function(b){if(b.out)el('rect',{x:b.x,y:b.y,width:b.w,height:b.h,rx:b.r||4,class:'paved'},gWorld);});
+  (AP.rails||[]).forEach(function(r){el('polyline',{points:r.map(function(p){return p.join(',');}).join(' '),class:'rail'},gWorld);});
   // buildings with a walkable hall inside
-  BUILDINGS.forEach(function(b){el('rect',{x:b.x,y:b.y,width:b.w,height:b.h,rx:b.r,class:'bldg'},gWorld);});
-  BUILDINGS.forEach(function(b){el('rect',{x:b.x+6,y:b.y+6,width:b.w-12,height:b.h-12,rx:Math.max(4,b.r-6),class:'hall'},gWorld);});
+  BUILDINGS.forEach(function(b){if(!b.out)el('rect',{x:b.x,y:b.y,width:b.w,height:b.h,rx:b.r,class:'bldg'},gWorld);});
+  BUILDINGS.forEach(function(b){if(!b.out)el('rect',{x:b.x+6,y:b.y+6,width:b.w-12,height:b.h-12,rx:Math.max(4,b.r-6),class:'hall'},gWorld);});
   // security halls
   (AP.secs||[]).forEach(function(r){el('rect',{x:r[0],y:r[1],width:r[2],height:r[3],rx:3,class:'sec'},gWorld);for(var i=1;i<6;i++)el('line',{x1:r[0]+i*r[2]/6,y1:r[1]+2,x2:r[0]+i*r[2]/6,y2:r[1]+r[3]-2,stroke:'var(--bldg-stroke)','stroke-width':1,'vector-effect':'non-scaling-stroke'},gWorld);});
   // units for shops, restaurants, bars and lounges, tinted by type
-  POIS.forEach(function(p){if(p.c==='service'||p.c==='security')return;var w=p.c==='lounge'?40:30,h=p.c==='lounge'?22:18;
+  POIS.forEach(function(p){if(p.c==='service'||p.c==='security'||CAT[p.c].ground)return;var w=p.c==='lounge'?40:30,h=p.c==='lounge'?22:18;
     el('rect',{x:p.x-w/2,y:p.y-h/2,width:w,height:h,rx:4,class:'unit',fill:'var('+CAT[p.c].color+')','fill-opacity':.14,stroke:'var('+CAT[p.c].color+')','stroke-opacity':.32},gWorld);});
   (AP.transitLines||[]).forEach(function(l){el('line',{x1:l[0],y1:l[1],x2:l[2],y2:l[3],class:'transit'},gWorld);});
   (AP.labels||[]).forEach(function(L){var t=el('text',{x:L.x,y:L.y,'text-anchor':'middle','font-size':L.area?8:9,class:(L.area?'area ':'')+'halo lbl1'},gWorld);t.textContent=L.t;});
@@ -306,7 +317,7 @@ function placeTiming(p,rMe,rGate){
   if(t&&rGate&&t.gate){var direct=rGate.dist[state.me],detour=t1+t2-direct,left=minsUntil(boardingAt(t));
     if(detour<90)o.tags.push('<span class="chip a">On your way</span>');
     var need=Math.ceil((t1+t2)/60)+CAT[p.c].dwell;
-    if(p.c!=='security'&&p.c!=='service'){if(left<=0)o.tags.push('<span class="chip r">Boarding now</span>');else if(need<=left)o.tags.push('<span class="chip g">Fits before boarding</span>');else o.tags.push('<span class="chip r">Too tight</span>');}
+    if(p.c!=='security'&&p.c!=='service'&&!CAT[p.c].ground){if(left<=0)o.tags.push('<span class="chip r">Boarding now</span>');else if(need<=left)o.tags.push('<span class="chip g">Fits before boarding</span>');else o.tags.push('<span class="chip r">Too tight</span>');}
   }
   var rp=activeReports(p.id);if(rp.length){var last=rp[rp.length-1];o.tags.push('<span class="chip '+(REPORT[last.type].tone)+'">'+REPORT[last.type].label+' · '+agoText(last.ts)+'</span>');}
   if(p.c==='mine')o.tags.push('<span class="chip n">Added by you</span>');
@@ -370,7 +381,7 @@ $('sheetClose').onclick=closeSheet;$('scrim').onclick=closeSheet;
 
 var searchCat=null;
 function openSearch(){
-  var cats=['food','coffee','bar','shop','lounge','service'].filter(function(c){return allPlaces().some(function(p){return p.c===c;});});
+  var cats=['food','coffee','bar','shop','lounge','service','transit','taxi','car','parking'].filter(function(c){return allPlaces().some(function(p){return p.c===c;});});
   openSheet('Search '+AP.term,'<div class="sfield"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" style="color:var(--fg3)"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" type="search" placeholder="Coffee, lounge, gate '+esc(AP.sample.gate)+'…" aria-label="Search '+esc(AP.term)+'" autocomplete="off"></div>'+
     '<div class="chips" id="cats">'+cats.map(function(c){return '<button class="fchip" type="button" data-c="'+c+'" aria-pressed="'+(searchCat===c)+'">'+CAT[c].label+'</button>';}).join('')+'</div>'+
     '<div class="note" id="timeNote"></div><div class="group" id="results"></div>',function(){
