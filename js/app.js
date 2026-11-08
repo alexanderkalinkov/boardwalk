@@ -11,7 +11,8 @@ var store={
 /* ---------- walking graph for the loaded airport ---------- */
 var AP=null,POIS=[],GATES=[],GATEMAP={},BUILDINGS=[],N={},ADJ={},BASE=[],STEP=20,MPU=1;
 /* where the plan sits on the real map; the traveller can fine-tune it (Settings → Line up the map) */
-function geo(){return (AP&&store.get('geo.'+AP.key,null))||AP.geo;}
+var PV='.v2'; // plan version: the real outlines replaced the sketches, so older per-airport fixes are ignored
+function geo(){return (AP&&store.get('geo.'+AP.key+PV,null))||AP.geo;}
 function addN(id,x,y,b,l){N[id]={id:id,x:x,y:y,b:b,l:l||0};ADJ[id]=ADJ[id]||[];}
 function link(a,b,cost,transit,kind){
   if(cost==null){var dx=N[a].x-N[b].x,dy=N[a].y-N[b].y;cost=Math.sqrt(dx*dx+dy*dy)*MPU/WALK;}
@@ -19,7 +20,16 @@ function link(a,b,cost,transit,kind){
 }
 function nearestBase(x,y,b,l){var best=null,bd=1e9;BASE.forEach(function(id){var n=N[id];if(b&&n.b!==b)return;if(l!=null&&n.l!==l)return;var d=(n.x-x)*(n.x-x)+(n.y-y)*(n.y-y);if(d<bd){bd=d;best=id;}});return best;}
 function attach(id,x,y,b,l){addN(id,x,y,b,l);link(id,nearestBase(x,y,b,l||0));}
-function inArea(x,y,b,pad){return BUILDINGS.some(function(a){return a.b===b&&x>=a.x+pad&&x<=a.x+a.w-pad&&y>=a.y+pad&&y<=a.y+a.h-pad;});}
+/* areas are rectangles {x,y,w,h} or real outlines {poly:[[x,y],…]} from OpenStreetMap */
+function areaPts(a){if(!a._p)a._p=a.poly||[[a.x,a.y],[a.x+a.w,a.y],[a.x+a.w,a.y+a.h],[a.x,a.y+a.h]];return a._p;}
+function areaBB(a){if(!a._bb){var b=[1e9,1e9,-1e9,-1e9];areaPts(a).forEach(function(p){b[0]=Math.min(b[0],p[0]);b[1]=Math.min(b[1],p[1]);b[2]=Math.max(b[2],p[0]);b[3]=Math.max(b[3],p[1]);});a._bb=b;}return a._bb;}
+function inPoly(x,y,pts){var c=false;for(var i=0,j=pts.length-1;i<pts.length;j=i++){var a=pts[i],b=pts[j];if((a[1]>y)!==(b[1]>y)&&x<(b[0]-a[0])*(y-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
+function segDist(x,y,a,b){var dx=b[0]-a[0],dy=b[1]-a[1],L=dx*dx+dy*dy,t=L?Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/L)):0;return Math.hypot(x-a[0]-t*dx,y-a[1]-t*dy);}
+function edgeDist(x,y,pts){var d=1e9;for(var i=0,j=pts.length-1;i<pts.length;j=i++)d=Math.min(d,segDist(x,y,pts[i],pts[j]));return d;}
+function areaHas(a,x,y,pad){var b=areaBB(a);if(x<b[0]+pad||x>b[2]-pad||y<b[1]+pad||y>b[3]-pad)return false;if(!a.poly)return true;var p=areaPts(a);return inPoly(x,y,p)&&(!pad||edgeDist(x,y,p)>=pad);}
+function areaPath(a){return 'M'+areaPts(a).map(function(p){return p[0]+' '+p[1];}).join('L')+'Z';}
+function allBB(skip){var bb=[1e9,1e9,-1e9,-1e9];BUILDINGS.forEach(function(a){if(skip&&skip(a))return;var b=areaBB(a);bb[0]=Math.min(bb[0],b[0]);bb[1]=Math.min(bb[1],b[1]);bb[2]=Math.max(bb[2],b[2]);bb[3]=Math.max(bb[3],b[3]);});return bb;}
+function walkable(x,y,b,l){return BUILDINGS.some(function(a){return !a.nowalk&&a.b===b&&(a.l||0)===l&&areaHas(a,x,y,0);});}
 var VCOST={lift:45,escalator:25,stairs:30};
 function expandVerts(a){if(a._v||!a.verts)return;a._v=1;
   a.verts.forEach(function(v){[v.from,v.to].forEach(function(l){a.pois.push({id:v.id+'_'+l,n:{lift:'Lift',escalator:'Escalators',stairs:'Stairs'}[v.kind],c:v.kind,b:v.b,x:v.x,y:v.y,l:l,
@@ -31,22 +41,39 @@ function loadAirport(key){
   AP=AIRPORTS[key];POIS=AP.pois;GATES=AP.gates;BUILDINGS=AP.areas;GATEMAP={};GATES.forEach(function(g){GATEMAP[g.id]=g;});
   N={};ADJ={};BASE=[];MPU=geo().s||1;
   var seen={};
-  BUILDINGS.forEach(function(a){if(a.nowalk)return;var l=a.l||0;
-    for(var x=Math.ceil((a.x+6)/STEP)*STEP;x<=a.x+a.w-6;x+=STEP)for(var y=Math.ceil((a.y+6)/STEP)*STEP;y<=a.y+a.h-6;y+=STEP){
+  BUILDINGS.forEach(function(a){if(a.nowalk)return;var l=a.l||0,bb=areaBB(a),pad=a.poly?4:6;
+    for(var x=Math.ceil((bb[0]+pad)/STEP)*STEP;x<=bb[2]-pad;x+=STEP)for(var y=Math.ceil((bb[1]+pad)/STEP)*STEP;y<=bb[3]-pad;y+=STEP){
+      if(!areaHas(a,x,y,pad))continue;
       var id='n'+a.b+l+'_'+x+'_'+y;if(seen[id])continue;seen[id]=1;addN(id,x,y,a.b,l);BASE.push(id);}
   });
-  // link grid neighbours; bridge a one-cell gap where two areas of the same kind meet (e.g. a door to the pavement)
-  BASE.forEach(function(id){var n=N[id],pre='n'+n.b+n.l+'_';[[STEP,0],[0,STEP]].forEach(function(d){var o=pre+(n.x+d[0])+'_'+(n.y+d[1]);if(N[o])link(id,o);else{o=pre+(n.x+2*d[0])+'_'+(n.y+2*d[1]);if(N[o])link(id,o);}});});
+  // link grid neighbours (also diagonally, for angled piers) when the way between them stays indoors;
+  // bridge a one-cell gap where two areas of the same kind meet (e.g. a door to the pavement)
+  BASE.forEach(function(id){var n=N[id],pre='n'+n.b+n.l+'_';[[STEP,0],[0,STEP],[STEP,STEP],[STEP,-STEP]].forEach(function(d){var diag=d[0]&&d[1];
+    var o=pre+(n.x+d[0])+'_'+(n.y+d[1]);
+    if(N[o]){if(walkable(n.x+d[0]/2,n.y+d[1]/2,n.b,n.l))link(id,o);}
+    else if(!diag){o=pre+(n.x+2*d[0])+'_'+(n.y+2*d[1]);if(N[o])link(id,o);}});});
+  // make sure every place joins the network even if the outline has a narrow neck
+  connectIslands();
   (AP.joins||[]).forEach(function(j,i){var a='ja'+i,b='jb'+i;attach(a,j.a[0],j.a[1],j.a[2],j.a[3]);attach(b,j.b[0],j.b[1],j.b[2],j.b[3]);link(a,b,j.c,j.t);});
   GATES.forEach(function(g){attach('g'+g.id,g.x,g.y,g.b,g.l);});
   POIS.forEach(function(p){attach('p'+p.id,p.x,p.y,p.b,p.l);});
   // lifts, escalators and stairs join the floors
   POIS.forEach(function(p){if(!p.vert||p.l!==p.vert.from)return;var up=POIS.find(function(q){return q.vert&&q.vert.id===p.vert.id&&q.l===p.vert.to;});if(up)link('p'+p.id,'p'+up.id,VCOST[p.c],false,p.c);});
-  myPlaces.filter(function(p){return (p.ap||'LHR5')===key;}).forEach(function(p){attach('p'+p.id,p.x,p.y,p.b,p.l);});
-  state.me=store.get('me.'+key,'p'+AP.start);if(!N[state.me])state.me='p'+AP.start;
+  myPlaces.filter(function(p){return p.v===2&&p.ap===key;}).forEach(function(p){attach('p'+p.id,p.x,p.y,p.b,p.l);});
+  state.me=store.get('me.'+key+PV,'p'+AP.start);if(!N[state.me])state.me='p'+AP.start;
   state.sel=null;state.lvl=N[state.me].l;
 }
 
+function connectIslands(){
+  if(!BASE.length)return;var comp={},cid=0;
+  BASE.forEach(function(id){if(comp[id]!=null)return;var st=[id];comp[id]=cid;while(st.length){var u=st.pop();ADJ[u].forEach(function(e){if(comp[e.to]==null&&N[e.to]&&e.to[0]==='n'&&!e.k&&!e.t){comp[e.to]=cid;st.push(e.to);}});}cid++;});
+  // join each smaller island of the same zone and floor to its nearest neighbour in another island
+  for(var guard=0;guard<40;guard++){var groups={};BASE.forEach(function(id){var n=N[id],key=n.b+'|'+n.l;(groups[key]=groups[key]||{})[comp[id]]=1;});
+    var merged=false;Object.keys(groups).forEach(function(key){var cs=Object.keys(groups[key]);if(cs.length<2||merged)return;
+      var c0=+cs[0],best=null,bd=1e18;BASE.forEach(function(a){if(comp[a]!==c0)return;var na=N[a];BASE.forEach(function(b){var nb=N[b];if(comp[b]===c0||nb.b!==na.b||nb.l!==na.l)return;var d=(na.x-nb.x)*(na.x-nb.x)+(na.y-nb.y)*(na.y-nb.y);if(d<bd){bd=d;best=[a,b];}});});
+      if(best){link(best[0],best[1]);var from=comp[best[1]];BASE.forEach(function(id){if(comp[id]===from)comp[id]=c0;});merged=true;}});
+    if(!merged)break;}
+}
 function dijkstra(src){
   var dist={},prev={},done={},q=[src];dist[src]=0;
   while(q.length){
@@ -70,9 +97,9 @@ var reports=store.get('reports',[]);
 var myPlaces=store.get('places',[]);
 var state={activeId:store.get('active',null),ap:store.get('ap','SOF2'),stepfree:store.get('stepfree',false),lvl:0,me:null,sel:null,expanded:false,walking:null};
 if(!AIRPORTS[state.ap])state.ap='SOF2';
-function save(){store.set('trips',trips);store.set('reports',reports);store.set('places',myPlaces);store.set('active',state.activeId);store.set('ap',state.ap);if(AP)store.set('me.'+AP.key,state.me);}
+function save(){store.set('trips',trips);store.set('reports',reports);store.set('places',myPlaces);store.set('active',state.activeId);store.set('ap',state.ap);if(AP)store.set('me.'+AP.key+PV,state.me);}
 
-function allPlaces(){return POIS.concat(myPlaces.filter(function(p){return (p.ap||'LHR5')===AP.key;}));}
+function allPlaces(){return POIS.concat(myPlaces.filter(function(p){return p.v===2&&p.ap===AP.key;}));}
 function placeById(id){return allPlaces().find(function(p){return p.id===id;});}
 function activeTrip(){var t=trips.find(function(x){return x.id===state.activeId;});if(t)return t;var up=trips.slice().sort(function(a,b){return a.dep-b.dep;});return up[0]||null;}
 function mapped(t){return !!apFor(t);}
@@ -114,24 +141,26 @@ var vb={x:-40,y:-40,w:480,h:800},k=1;
 
 var PLANE='M0,-12C1.6,-12 1.7,-9 1.7,-8L1.7,-2.5L11,3.5L11,5.5L1.7,2.8L1.7,8.5L5,11L5,12.6L0,11.6L-5,12.6L-5,11L-1.7,8.5L-1.7,2.8L-11,5.5L-11,3.5L-1.7,-2.5L-1.7,-8C-1.7,-9 -1.6,-12 0,-12Z';
 function gateSide(g){return g.sd||'T';}
+/* which way the aircraft is from the gate: [dx, dy, rotation]; a = compass-style angle in the plan (0 = up) */
+function gateVec(g){if(g.a!=null){var r=g.a*Math.PI/180;return [Math.sin(r),-Math.cos(r),g.a];}var sd=gateSide(g);return [{T:0,D:0,L:-1,R:1}[sd],{T:-1,D:1,L:0,R:0}[sd],{T:0,D:180,L:270,R:90}[sd]];}
 function tag(e,l){if(AP.levels&&l!=null)e.setAttribute('data-l',l);return e;}
 function buildMap(){
   svg.innerHTML='';
   if(!basemap.ok)el('rect',{x:-3000,y:-3000,width:7000,height:7000,fill:'var(--map-bg)'},svg);
   gWorld=el('g',{},svg);
   // airfield: grass, apron, taxiway centre lines (per airport, or drawn around the buildings)
-  var bb=[1e9,1e9,-1e9,-1e9];BUILDINGS.forEach(function(a){if(a.out||a.b==='L')return;bb[0]=Math.min(bb[0],a.x);bb[1]=Math.min(bb[1],a.y);bb[2]=Math.max(bb[2],a.x+a.w);bb[3]=Math.max(bb[3],a.y+a.h);});
+  var bb=allBB(function(a){return a.out||a.b==='L';});
   if(!basemap.ok){el('rect',{x:bb[0]-900,y:bb[1]-900,width:bb[2]-bb[0]+1800,height:bb[3]-bb[1]+1800,class:'grass'},gWorld);
   (AP.apron||[[bb[0]-120,bb[1]-110,bb[2]-bb[0]+240,bb[3]-bb[1]+150]]).forEach(function(r){el('rect',{x:r[0],y:r[1],width:r[2],height:r[3],rx:30,class:'apron'},gWorld);});
   (AP.taxi||[[bb[0]-120,bb[1]-80,bb[2]+120,bb[1]-80],[bb[0]-90,bb[1]-110,bb[0]-90,bb[3]+40],[bb[2]+90,bb[1]-110,bb[2]+90,bb[3]+40]]).forEach(function(l){el('line',{x1:l[0],y1:l[1],x2:l[2],y2:l[3],class:'taxi'},gWorld);});}
   // aircraft on stand: jet bridges at bridge gates, a parked plane and a stand line at bus gates
-  GATES.forEach(function(g){var sd=gateSide(g),rot={T:180,D:0,L:90,R:-90}[sd],dx={T:0,D:0,L:-1,R:1}[sd],dy={T:-1,D:1,L:0,R:0}[sd];
-    var off=g.bus?46:27;
-    if(!g.bus){var bx=g.x+dx*7,by=g.y+dy*7;tag(el('rect',{x:bx-(dx?7:1.6),y:by-(dy?7:1.6),width:dx?14:3.2,height:dy?14:3.2,rx:1,class:'jb'},gWorld),g.l);}
-    else tag(el('line',{x1:g.x+dx*6,y1:g.y+dy*6,x2:g.x+dx*30,y2:g.y+dy*30,class:'taxi',style:'stroke-dasharray:3 3'},gWorld),g.l);
-    var cx=g.x+dx*off,cy=g.y+dy*off;tag(el('path',{d:PLANE,class:'plane',transform:'translate('+cx+' '+cy+') rotate('+rot+') scale(1.15)'},gWorld),g.l);});
+  GATES.forEach(function(g){var v=gateVec(g),dx=v[0],dy=v[1],rot=v[2];
+    var off=g.bus?(g.a!=null?50:46):(g.a!=null?31:27),sc=g.a!=null?1.6:1.15;
+    if(!g.bus){var bx=g.x+dx*(off-14)/2,by=g.y+dy*(off-14)/2,len=off-12;tag(el('rect',{x:-1.6,y:-len/2,width:3.2,height:len,rx:1,class:'jb',transform:'translate('+bx+' '+by+') rotate('+rot+')'},gWorld),g.l);}
+    else tag(el('line',{x1:g.x+dx*6,y1:g.y+dy*6,x2:g.x+dx*(off-16),y2:g.y+dy*(off-16),class:'taxi',style:'stroke-dasharray:3 3'},gWorld),g.l);
+    var cx=g.x+dx*off,cy=g.y+dy*off;tag(el('path',{d:PLANE,class:'plane',transform:'translate('+cx+' '+cy+') rotate('+(rot+180)+') scale('+sc+')'},gWorld),g.l);});
   // decorative stands along piers whose gates aren't mapped yet
-  BUILDINGS.forEach(function(a){if(!a.planes)return;for(var y=a.y+16;y<a.y+a.h-20;y+=34){el('path',{d:PLANE,class:'plane',transform:'translate('+(a.x-26)+' '+y+') rotate(90) scale(1.15)'},gWorld);el('path',{d:PLANE,class:'plane',transform:'translate('+(a.x+a.w+26)+' '+y+') rotate(-90) scale(1.15)'},gWorld);}});
+  BUILDINGS.forEach(function(a){if(!a.planes||a.poly)return;for(var y=a.y+16;y<a.y+a.h-20;y+=34){el('path',{d:PLANE,class:'plane',transform:'translate('+(a.x-26)+' '+y+') rotate(90) scale(1.15)'},gWorld);el('path',{d:PLANE,class:'plane',transform:'translate('+(a.x+a.w+26)+' '+y+') rotate(-90) scale(1.15)'},gWorld);}});
   // ground side (only when the real street map can't load): landside land, roads, car parks, pavements
   if(!basemap.ok){
   (AP.land||[]).forEach(function(r){el('rect',{x:r[0],y:r[1],width:r[2],height:r[3],rx:20,class:'land'},gWorld);});
@@ -141,29 +170,31 @@ function buildMap(){
   (AP.roads||[]).forEach(function(r){var pts=r.pts.map(function(p){return p.join(',');}).join(' ');
     el('polyline',{points:pts,class:'road-case',style:'stroke-width:'+(r.w+3)+'px'},gWorld);el('polyline',{points:pts,class:'road',style:'stroke-width:'+r.w+'px'},gWorld);
     if(r.name){var m=r.lab||r.pts[0];var t=el('text',{x:m[0],y:m[1]+3,'text-anchor':'middle','font-size':8,class:'halo lbl1 roadname'},gWorld);t.textContent=r.name;}});
-  BUILDINGS.forEach(function(b){if(b.out)tag(el('rect',{x:b.x,y:b.y,width:b.w,height:b.h,rx:b.r||4,class:'paved'},gWorld),b.l);});
+  BUILDINGS.forEach(function(b){if(!b.out)return;if(b.poly)tag(el('path',{d:areaPath(b),class:'paved'},gWorld),b.l);else tag(el('rect',{x:b.x,y:b.y,width:b.w,height:b.h,rx:b.r||4,class:'paved'},gWorld),b.l);});
   (AP.rails||[]).forEach(function(r){el('polyline',{points:r.map(function(p){return p.join(',');}).join(' '),class:'rail'},gWorld);});
   }
   // buildings with a walkable hall inside
-  BUILDINGS.forEach(function(b){if(!b.out)tag(el('rect',{x:b.x,y:b.y,width:b.w,height:b.h,rx:b.r,class:'bldg'},gWorld),b.l);});
-  BUILDINGS.forEach(function(b){if(!b.out)tag(el('rect',{x:b.x+6,y:b.y+6,width:b.w-12,height:b.h-12,rx:Math.max(4,b.r-6),class:b.nowalk?'hall closed':'hall'},gWorld),b.l);});
+  BUILDINGS.forEach(function(b){if(b.out)return;
+    if(b.poly){var d=areaPath(b);tag(el('path',{d:d,class:b.nowalk?'hall closed':'hall',style:'stroke:var(--bldg);stroke-width:9;stroke-linejoin:round'},gWorld),b.l);tag(el('path',{d:d,class:'bldg',style:'fill:none'},gWorld),b.l);return;}
+    tag(el('rect',{x:b.x,y:b.y,width:b.w,height:b.h,rx:b.r,class:'bldg'},gWorld),b.l);
+    tag(el('rect',{x:b.x+6,y:b.y+6,width:b.w-12,height:b.h-12,rx:Math.max(4,b.r-6),class:b.nowalk?'hall closed':'hall'},gWorld),b.l);});
   // security halls
   (AP.secs||[]).forEach(function(r){tag(el('rect',{x:r[0],y:r[1],width:r[2],height:r[3],rx:3,class:'sec'},gWorld),r[4]);for(var i=1;i<6;i++)tag(el('line',{x1:r[0]+i*r[2]/6,y1:r[1]+2,x2:r[0]+i*r[2]/6,y2:r[1]+r[3]-2,stroke:'var(--bldg-stroke)','stroke-width':1,'vector-effect':'non-scaling-stroke'},gWorld),r[4]);});
   // units for shops, restaurants, bars and lounges, tinted by type
-  POIS.forEach(function(p){if(p.c==='service'||p.c==='security'||CAT[p.c].ground||CAT[p.c].move)return;var w=p.c==='lounge'?40:30,h=p.c==='lounge'?22:18;
+  POIS.forEach(function(p){if(p.c==='service'||p.c==='toilet'||p.c==='security'||CAT[p.c].ground||CAT[p.c].move)return;var w=p.c==='lounge'?40:30,h=p.c==='lounge'?22:18;
     tag(el('rect',{x:p.x-w/2,y:p.y-h/2,width:w,height:h,rx:4,class:'unit',fill:'var('+CAT[p.c].color+')','fill-opacity':.14,stroke:'var('+CAT[p.c].color+')','stroke-opacity':.32},gWorld),p.l);});
   (AP.transitLines||[]).forEach(function(l){el('line',{x1:l[0],y1:l[1],x2:l[2],y2:l[3],class:'transit'},gWorld);});
   (AP.labels||[]).forEach(function(L){var t=tag(el('text',{x:L.x,y:L.y,'text-anchor':'middle','font-size':L.area?8:9,class:(L.area?'area ':'')+'halo lbl1'},gWorld),L.l);t.textContent=L.t;});
   gRoute=el('g',{},gWorld);
   gPins=el('g',{},gWorld);
   (AP.bigLabels||[]).forEach(function(b){var g=el('g',{class:'pin','data-x':b[1],'data-y':b[2],style:'pointer-events:none'},gPins);var tx=el('text',{x:0,y:0,'text-anchor':'middle','font-size':13,class:'bname halo'},g);tx.textContent=b[0];});
-  GATES.forEach(function(gt){var sd=gateSide(gt),ox={T:0,D:0,L:16,R:-16}[sd],oy={T:15,D:-15,L:0,R:0}[sd];
+  GATES.forEach(function(gt){var v=gateVec(gt),ox=-v[0]*15,oy=-v[1]*15;
     var g=tag(el('g',{class:'pin gate','data-x':gt.x+ox,'data-y':gt.y+oy,'data-gate':gt.id},gPins),gt.l);
     el('rect',{x:-14,y:-7.5,width:28,height:15,rx:4,fill:'var(--gate)',stroke:'var(--bldg-stroke)','stroke-width':.8},g);
     var tx=el('text',{x:0,y:3.5,'text-anchor':'middle','font-size':gt.id.length>2?8:9,style:'fill:var(--gate-ink);font-weight:700'},g);tx.textContent=gt.id;});
   gMine=el('g',{},gPins);
   POIS.forEach(function(p){drawPoi(p,gPins);});
-  myPlaces.filter(function(p){return (p.ap||'LHR5')===AP.key;}).forEach(function(p){drawPoi(p,gMine);});
+  myPlaces.filter(function(p){return p.v===2&&p.ap===AP.key;}).forEach(function(p){drawPoi(p,gMine);});
   svg.setAttribute('aria-label','Indoor map of '+AP.name+' '+AP.term);
   gAcc=el('circle',{r:0,class:'acc',fill:'var(--accent)','fill-opacity':.10,stroke:'var(--accent)','stroke-opacity':.35,'stroke-width':1,'vector-effect':'non-scaling-stroke'},gWorld);
   gMe=el('g',{class:'pin','data-x':0,'data-y':0,style:'pointer-events:none'},gWorld);
@@ -174,12 +205,12 @@ function buildMap(){
   el('circle',{r:8.5,fill:'var(--accent)',stroke:'#FFFFFF','stroke-width':3.5},gMe);
 }
 function drawPoi(p,parent){
-  var g=tag(el('g',{class:'pin poi','data-x':p.x,'data-y':p.y,'data-poi':p.id,role:'button','aria-label':p.n},parent),p.l);
+  var g=tag(el('g',{class:'pin poi'+(p.c==='toilet'?' wc':''),'data-x':p.x,'data-y':p.y,'data-poi':p.id,role:'button','aria-label':p.n},parent),p.l);
   var google=$('phone').classList.contains('g'),cy=0;
   if(google){cy=-15;el('path',{d:'M0,0C-6,-7 -9,-10.5 -9,-15A9,9 0 1 1 9,-15C9,-10.5 6,-7 0,0Z',class:'bg',fill:'var('+CAT[p.c].color+')',stroke:'#FFFFFF','stroke-width':1},g);}
   else el('circle',{r:10,class:'bg',fill:'var('+CAT[p.c].color+')',stroke:'#FFFFFF','stroke-width':1.2},g);
   el('path',{d:ICON[p.c],fill:'none',stroke:'#FFFFFF','stroke-width':1.6,'stroke-linecap':'round','stroke-linejoin':'round',transform:'translate(0 '+cy+') scale(.92)'},g);
-  var tier=(p.c==='service'||p.c==='coffee'||p.c==='security')?'lbl2':'lbl1';
+  var tier=(p.c==='service'||p.c==='toilet'||p.c==='coffee'||p.c==='security')?'lbl2':'lbl1';
   var nm=p.n.length>24?p.n.slice(0,23)+'…':p.n;
   var t=el('text',{x:0,y:google?11:22,'text-anchor':'middle','font-size':10,class:'halo '+tier,style:'fill:var('+CAT[p.c].color+');font-weight:700'},g);t.textContent=nm;
 }
@@ -190,7 +221,7 @@ function applyView(){
   var s=1/k; s=Math.max(.35,Math.min(s*1.0,1.6));
   var pins=svg.querySelectorAll('.pin');
   for(var i=0;i<pins.length;i++){var p=pins[i];p.setAttribute('transform','translate('+p.getAttribute('data-x')+' '+p.getAttribute('data-y')+') scale('+s+')');}
-  svg.classList.toggle('zin',k>1.5);svg.classList.toggle('z1',k>1.35);svg.classList.toggle('z2',k>1.9);
+  svg.classList.toggle('zin',k>1.5);svg.classList.toggle('zt',k>.8);svg.classList.toggle('z1',k>1.35);svg.classList.toggle('z2',k>1.9);
   syncBasemap();
   var kk=k/MPU,target=80/kk,nice=[10,20,25,50,100,200,250,500],m=nice[0];for(var j=0;j<nice.length;j++){if(nice[j]<=target)m=nice[j];}
   var sb=$('scaleBar');if(sb){sb.style.width=Math.round(m*kk)+'px';$('scaleTxt').textContent=m+' m';}
@@ -222,7 +253,7 @@ svg.addEventListener('pointermove',function(e){var p=ptrs[e.pointerId];if(!p||!g
   if(gesture.pinch&&ids.length===2){p.x=e.clientX;p.y=e.clientY;var a=ptrs[ids[0]],b=ptrs[ids[1]],d=Math.hypot(a.x-b.x,a.y-b.y);zoomAt((a.x+b.x)/2,(a.y+b.y)/2,d/gesture.d);gesture.d=d;return;}
   var dx=e.clientX-p.x,dy=e.clientY-p.y;p.x=e.clientX;p.y=e.clientY;
   if(Math.hypot(e.clientX-gesture.sx,e.clientY-gesture.sy)>6)gesture.moved=true;
-  if(gesture.moved&&adjust){var ag=adjust.g;ag.x+=dx/k;ag.y+=dy/k;store.set('geo.'+AP.key,ag);syncBasemap();return;}
+  if(gesture.moved&&adjust){var ag=adjust.g;ag.x+=dx/k;ag.y+=dy/k;store.set('geo.'+AP.key+PV,ag);syncBasemap();return;}
   if(gesture.moved){vb.x-=dx/k;vb.y-=dy/k;applyView();hideMoveChip();if(live.follow){live.follow=false;locBtn();}}
 });
 function endPtr(e){var g=gesture;delete ptrs[e.pointerId];
@@ -235,7 +266,7 @@ function onTap(e,target){
   if(poiEl){selectPlace(poiEl.getAttribute('data-poi'));return;}
   if(gateEl){toast('Gate '+gateEl.getAttribute('data-gate'));return;}
   if(state.sel){clearSel();return;}
-  var m=toMap(e.clientX,e.clientY),inB=BUILDINGS.find(function(b){return !b.nowalk&&(b.l||0)===state.lvl&&m.x>=b.x&&m.x<=b.x+b.w&&m.y>=b.y&&m.y<=b.y+b.h;});
+  var m=toMap(e.clientX,e.clientY),inB=BUILDINGS.find(function(b){return !b.nowalk&&(b.l||0)===state.lvl&&areaHas(b,m.x,m.y,0);});
   if(!inB){hideMoveChip();return;}
   moveTarget={x:m.x,y:m.y,b:inB.b};showMoveChip();
 }
@@ -244,7 +275,7 @@ function showMoveChip(){var c=$('movechip');c.textContent=(live.on&&live.here)?'
 function hideMoveChip(){$('movechip').hidden=true;}
 function posMoveChip(){var c=$('movechip');if(c.hidden||!moveTarget)return;var r=svg.getBoundingClientRect(),pr=$('phone').getBoundingClientRect();c.style.left=(r.left-pr.left+(moveTarget.x-vb.x)*k)+'px';c.style.top=(r.top-pr.top+(moveTarget.y-vb.y)*k)+'px';}
 $('movechip').addEventListener('click',function(){if(!moveTarget)return;
-  if(live.on&&live.here&&live.raw){var o={dx:moveTarget.x-live.raw.x,dy:moveTarget.y-live.raw.y};store.set('cal.'+AP.key,o);live.pos={x:moveTarget.x,y:moveTarget.y};hideMoveChip();toast('Thanks. Your position is corrected for this airport.');onLiveMoved(true);return;}
+  if(live.on&&live.here&&live.raw){var o={dx:moveTarget.x-live.raw.x,dy:moveTarget.y-live.raw.y};store.set('cal.'+AP.key+PV,o);live.pos={x:moveTarget.x,y:moveTarget.y};hideMoveChip();toast('Thanks. Your position is corrected for this airport.');onLiveMoved(true);return;}
 var id=nearestBase(moveTarget.x,moveTarget.y,moveTarget.b,state.lvl);state.me=id;save();hideMoveChip();render();toast('Location set. Real phones use Wi-Fi and motion sensors for this.');});
 
 /* ---------- rendering ---------- */
@@ -340,7 +371,7 @@ function placeTiming(p,rMe,rGate){
   if(t&&rGate&&t.gate){var direct=rGate.dist[state.me],detour=t1+t2-direct,left=minsUntil(boardingAt(t));
     if(detour<90)o.tags.push('<span class="chip a">On your way</span>');
     var need=Math.ceil((t1+t2)/60)+CAT[p.c].dwell;
-    if(p.c!=='security'&&p.c!=='service'&&!CAT[p.c].ground&&!CAT[p.c].move){if(left<=0)o.tags.push('<span class="chip r">Boarding now</span>');else if(need<=left)o.tags.push('<span class="chip g">Fits before boarding</span>');else o.tags.push('<span class="chip r">Too tight</span>');}
+    if(p.c!=='security'&&p.c!=='service'&&p.c!=='toilet'&&!CAT[p.c].ground&&!CAT[p.c].move){if(left<=0)o.tags.push('<span class="chip r">Boarding now</span>');else if(need<=left)o.tags.push('<span class="chip g">Fits before boarding</span>');else o.tags.push('<span class="chip r">Too tight</span>');}
   }
   var rp=activeReports(p.id);if(rp.length){var last=rp[rp.length-1];o.tags.push('<span class="chip '+(REPORT[last.type].tone)+'">'+REPORT[last.type].label+' · '+agoText(last.ts)+'</span>');}
   if(p.c==='mine')o.tags.push('<span class="chip n">Added by you</span>');
@@ -385,7 +416,7 @@ function startWalk(){
 }
 function nearestAny(p){var best=null,bd=1e9;Object.keys(N).forEach(function(id){var n=N[id];if(n.l!==state.lvl)return;var d=(n.x-p.x)*(n.x-p.x)+(n.y-p.y)*(n.y-p.y);if(d<bd){bd=d;best=id;}});return best;}
 function bboxOf(pts){var b=[1e9,1e9,-1e9,-1e9];pts.forEach(function(p){b[0]=Math.min(b[0],p.x);b[1]=Math.min(b[1],p.y);b[2]=Math.max(b[2],p.x);b[3]=Math.max(b[3],p.y);});return [b[0]-20,b[1]-20,b[2]+20,b[3]+20];}
-function fitRoute(anim){var t=activeTrip();if(t&&!mapped(t))return;if(lastRoute){var r=bboxOf(lastRoute.path.map(function(s){return N[s.id];})),cx=(r[0]+r[2])/2,cy=(r[1]+r[3])/2,hw=Math.max((r[2]-r[0])/2,130),hh=Math.max((r[3]-r[1])/2,150);fit([cx-hw,cy-hh,cx+hw,cy+hh],anim);}else{var bb=[1e9,1e9,-1e9,-1e9];BUILDINGS.forEach(function(a){bb[0]=Math.min(bb[0],a.x);bb[1]=Math.min(bb[1],a.y);bb[2]=Math.max(bb[2],a.x+a.w);bb[3]=Math.max(bb[3],a.y+a.h);});fit(bb,anim);}}
+function fitRoute(anim){var t=activeTrip();if(t&&!mapped(t))return;if(lastRoute){var r=bboxOf(lastRoute.path.map(function(s){return N[s.id];})),cx=(r[0]+r[2])/2,cy=(r[1]+r[3])/2,hw=Math.max((r[2]-r[0])/2,130),hh=Math.max((r[3]-r[1])/2,150);fit([cx-hw,cy-hh,cx+hw,cy+hh],anim);}else fit(allBB(),anim);}
 
 function simulateGate(){
   var t=activeTrip();if(!t)return;var opts=GATES.filter(function(g){return g.id!==t.gate;});var g=opts[Math.floor(Math.random()*opts.length)].id;
@@ -406,7 +437,7 @@ $('sheetClose').onclick=closeSheet;$('scrim').onclick=closeSheet;
 
 var searchCat=null;
 function openSearch(){
-  var cats=['food','coffee','bar','shop','lounge','service','transit','taxi','car','parking','lift','escalator','stairs'].filter(function(c){return allPlaces().some(function(p){return p.c===c;});});
+  var cats=['toilet','food','coffee','bar','shop','lounge','service','transit','taxi','car','parking','lift','escalator','stairs'].filter(function(c){return allPlaces().some(function(p){return p.c===c;});});
   openSheet('Search '+AP.term,'<div class="sfield"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true" style="color:var(--fg3)"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg><input id="q" type="search" placeholder="Coffee, lounge, gate '+esc(AP.sample.gate)+'…" aria-label="Search '+esc(AP.term)+'" autocomplete="off"></div>'+
     '<div class="chips" id="cats">'+cats.map(function(c){return '<button class="fchip" type="button" data-c="'+c+'" aria-pressed="'+(searchCat===c)+'">'+CAT[c].label+'</button>';}).join('')+'</div>'+
     '<div class="note" id="timeNote"></div><div class="group" id="results"></div>',function(){
@@ -425,7 +456,7 @@ function renderResults(){
   var list=allPlaces().filter(function(p){if(p.c==='security'&&!q)return false;if(searchCat&&p.c!==searchCat)return false;if(!q)return true;return (p.n+' '+p.loc+' '+CAT[p.c].label).toLowerCase().indexOf(q)>=0;})
     .map(function(p){return {p:p,o:placeTiming(p,rMe,rG)};}).sort(function(a,b){return a.o.t1-b.o.t1;});
   list.forEach(function(r){var p=r.p;html+='<button class="res" type="button" data-poi="'+p.id+'"><div class="dot" style="background:var('+CAT[p.c].color+')"><svg width="20" height="20" viewBox="-8 -8 16 16" aria-hidden="true"><path d="'+ICON[p.c]+'" fill="none" stroke="#FFFFFF" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div style="flex:1;min-width:0"><div class="row between"><span class="t">'+esc(p.n)+'</span><span class="b" style="white-space:nowrap">'+r.o.mins+' min</span></div><div class="m">'+esc(lvlPre(p)+p.loc)+(p.h?' · '+esc(p.h):'')+'</div><div class="tags">'+r.o.tags.join('')+'</div></div></button>';});
-  if(!html){html='<div class="cell" style="flex-direction:column;align-items:flex-start;gap:6px"><span class="b">Nothing found for “'+esc(q)+'”</span><span class="small muted">Toilets and many shops aren’t mapped yet in this prototype. Add a missing place from the + button and it will appear for you here.</span></div>';}
+  if(!html){html='<div class="cell" style="flex-direction:column;align-items:flex-start;gap:6px"><span class="b">Nothing found for “'+esc(q)+'”</span><span class="small muted">Many shops aren’t mapped yet in this prototype. Add a missing place from the + button and it will appear for you here.</span></div>';}
   $('results').innerHTML=html;
   $('results').querySelectorAll('[data-poi]').forEach(function(b){b.onclick=function(){closeSheet();selectPlace(b.getAttribute('data-poi'));};});
   $('results').querySelectorAll('[data-gate]').forEach(function(b){b.onclick=function(){closeSheet();var g=GATEMAP[b.getAttribute('data-gate')],m=meXY();fit([Math.min(g.x,m.x)-30,Math.min(g.y,m.y)-30,Math.max(g.x,m.x)+30,Math.max(g.y,m.y)+30],true);};});
@@ -444,8 +475,8 @@ function openReport(pid){
     '<div class="err" id="np-err" hidden></div><button class="btn primary full" id="np-save" type="button">Add place</button><div class="note">New places go on the map at your blue dot. Move the dot first by tapping the map.</div>',function(){
       $('sheetBody').querySelectorAll('[data-r]').forEach(function(b){b.onclick=function(){closeSheet();toast('Thanks. Noted as “'+REPORT[b.getAttribute('data-r')].label+'”');};});
       $('np-save').onclick=function(){var name=$('np-name').value.trim();if(!name){$('np-err').hidden=false;$('np-err').textContent='Give the place a name, for example “Toilets”.';return;}
-        var me=meXY(),n=N[state.me],nb=n?n.b:BUILDINGS[0].b,np={id:'m'+Date.now(),ap:AP.key,n:name,c:'mine',kind:$('np-cat').value,b:nb,x:Math.round(me.x+14),y:Math.round(me.y-10),loc:'Added by you · '+(AP.bnames[nb]||AP.term),h:''};
-        myPlaces.push(np);attach('p'+np.id,np.x,np.y,np.b);drawPoi(np,gMine);save();closeSheet();render();toast('Added “'+name+'” to your map');};
+        var me=meXY(),n=N[state.me],nb=n?n.b:BUILDINGS[0].b,np={id:'m'+Date.now(),v:2,ap:AP.key,l:state.lvl,n:name,c:'mine',kind:$('np-cat').value,b:nb,x:Math.round(me.x+14),y:Math.round(me.y-10),loc:'Added by you · '+(AP.bnames[nb]||AP.term),h:''};
+        myPlaces.push(np);attach('p'+np.id,np.x,np.y,np.b,np.l);drawPoi(np,gMine);save();closeSheet();render();toast('Added “'+name+'” to your map');};
     });
 }
 
@@ -545,16 +576,16 @@ function startAdjust(){
     '<button class="btn soft" type="button" data-a="copy">Copy</button><button class="btn soft" type="button" data-a="reset">Reset</button><button class="btn primary" type="button" data-a="done">Done</button></div>';
   bar.querySelectorAll('[data-a]').forEach(function(b){b.onclick=function(){var a=b.getAttribute('data-a'),g=adjust.g;
     if(a==='r-')g.rot=(g.rot+359)%360;else if(a==='r+')g.rot=(g.rot+1)%360;else if(a==='s-')g.s=+(g.s/1.03).toFixed(4);else if(a==='s+')g.s=+(g.s*1.03).toFixed(4);
-    else if(a==='reset'){try{localStorage.removeItem('bw.geo.'+AP.key);}catch(e){}var o=AP.geo;adjust.g={lat:o.lat,lon:o.lon,x:o.x,y:o.y,rot:o.rot,s:o.s||1};applyView();return;}
+    else if(a==='reset'){try{localStorage.removeItem('bw.geo.'+AP.key+PV);}catch(e){}var o=AP.geo;adjust.g={lat:o.lat,lon:o.lon,x:o.x,y:o.y,rot:o.rot,s:o.s||1};applyView();return;}
     else if(a==='copy'){var txt=AP.key+' geo:'+JSON.stringify({lat:+g.lat.toFixed(6),lon:+g.lon.toFixed(6),x:+g.x.toFixed(1),y:+g.y.toFixed(1),rot:g.rot,s:g.s});
       try{navigator.clipboard.writeText(txt).then(function(){toast('Copied. Paste it in a message to us.');},function(){toast(txt);});}catch(e){toast(txt);}return;}
     else if(a==='done'){endAdjust();return;}
-    store.set('geo.'+AP.key,g);if(a[0]==='s'){MPU=g.s;}applyView();};});
+    store.set('geo.'+AP.key+PV,g);if(a[0]==='s'){MPU=g.s;}applyView();};});
 }
 function endAdjust(){adjust=null;$('adjbar').hidden=true;document.body.classList.remove('adjusting');var key=AP.key;AP=null;ensureAirport();render();toast('Saved on this phone');}
 
 /* small hook for automated checks */
-window.BW={unproject:function(x,y){return unproject(x,y);},project:function(lat,lon){return project(AP,lat,lon);},map:function(){return basemap.map;},screen:function(x,y){var r=svg.getBoundingClientRect();return [r.left+(x-vb.x)*k,r.top+(y-vb.y)*k];}};
+window.BW={unreachable:function(){var r=dijkstra(state.me),out=[];GATES.forEach(function(g){if(r.dist['g'+g.id]==null)out.push('gate '+g.id);});allPlaces().forEach(function(p){if(r.dist['p'+p.id]==null)out.push(p.id);});return out;},nodes:function(){return BASE.length;},load:function(k){state.ap=k;state.activeId=null;AP=null;ensureAirport();render();return AP.key;},unproject:function(x,y){return unproject(x,y);},project:function(lat,lon){return project(AP,lat,lon);},map:function(){return basemap.map;},screen:function(x,y){var r=svg.getBoundingClientRect();return [r.left+(x-vb.x)*k,r.top+(y-vb.y)*k];}};
 /* ---------- real street map underneath (OpenStreetMap via OpenFreeMap, drawn by MapLibre) ----------
    The plan's SVG stays in charge of panning and zooming; the street map follows it, rotated so the plan's "up" matches. */
 var basemap={ok:false,map:null,style:null};
@@ -591,7 +622,8 @@ function unproject(x,y){var g=geo(),sc=g.s||1,mx=(x-g.x)*sc,my=(g.y-y)*sc,r=g.ro
   return {lat:g.lat+n/110540,lon:g.lon+e/(111320*Math.cos(g.lat*Math.PI/180))};}
 function metresFrom(a,lat,lon){var e=(lon-a.lon)*111320*Math.cos(a.lat*Math.PI/180),n=(lat-a.lat)*110540;return Math.hypot(e,n);}
 function clampToAreas(p){
-  var best=null,bd=1e9;BUILDINGS.forEach(function(a){var x=Math.max(a.x+8,Math.min(a.x+a.w-8,p.x)),y=Math.max(a.y+8,Math.min(a.y+a.h-8,p.y)),d=(x-p.x)*(x-p.x)+(y-p.y)*(y-p.y);if(d<bd){bd=d;best={x:x,y:y,b:a.b};}});return best;}
+  var inside=BUILDINGS.find(function(a){return !a.nowalk&&(a.l||0)===state.lvl&&areaHas(a,p.x,p.y,6);});if(inside)return {x:p.x,y:p.y,b:inside.b};
+  var id=nearestBase(p.x,p.y,null,state.lvl),n=id&&N[id];return n?{x:n.x,y:n.y,b:n.b}:{x:p.x,y:p.y,b:null};}
 function locBtn(){var b=$('btnLocate');b.setAttribute('aria-pressed',live.on?'true':'false');b.classList.toggle('on',live.on);b.classList.toggle('follow',live.on&&live.follow);
   b.setAttribute('aria-label',!live.on?'Use my live location':(live.follow?'Turn off live location':'Follow my location'));}
 function startLive(){
@@ -615,7 +647,7 @@ function onPos(p){
     if(!t||!mapped(t)||apFor(t).code!==near.code){state.ap=near.key;store.set('ap',near.key);if(t&&mapped(t))state.activeId=null;render();banner('You’re at '+near.name+' '+near.term,'Indoor maps are ready.');}
     else if(apFor(t).key!==near.key){/* same airport, other terminal: keep the trip's terminal */live.here=false;drawMe();return;}
   }
-  var raw=project(AP,lat,lon),cal=store.get('cal.'+AP.key,null);if(cal){raw.x+=cal.dx;raw.y+=cal.dy;}
+  var raw=project(AP,lat,lon),cal=store.get('cal.'+AP.key+PV,null);if(cal){raw.x+=cal.dx;raw.y+=cal.dy;}
   live.raw={x:raw.x-(cal?cal.dx:0),y:raw.y-(cal?cal.dy:0)};
   var c=clampToAreas(raw);
   if(!live.pos||!live.here){live.pos={x:c.x,y:c.y};}
