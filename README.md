@@ -17,13 +17,17 @@ This repository is the **web app test build**. It runs in any phone browser and 
 
 ## Data
 
-Places, hours and gates come from public guides, listed inside the app under Settings and privacy. The floor plans are schematic sketches, not surveys. Sofia is the test airport and is meant to be checked in person.
+- **Building outlines, gates and toilets** come from OpenStreetMap (© OpenStreetMap contributors, ODbL), via the Overture Maps open data release. They're in `data/osm/` and turned into `js/outlines.js` by `tools/osm/build.py`; see `data/osm/README.md`. Heathrow T5A's outline is missing from OpenStreetMap, so it's drawn from the building's published size and its gates.
+- **Shops, cafés, lounges, services and transport** come from public guides, listed inside the app under Settings and privacy, and are placed from their descriptions.
+- **Best guesses to check on site:** where airside ends and the check-in hall begins, and (at Sofia T2) where the escalators, lift and stairs are. Sofia is the test airport.
 
 ## Project layout
 
 - `index.html`: app markup
 - `css/app.css`: styles, light and dark, Apple and Google looks
-- `js/airports.js`: airport data (areas, gates, places, sources, geo-reference)
+- `js/outlines.js`: generated terminal outlines, gates and toilets from OpenStreetMap (don't edit by hand)
+- `js/airports.js`: airport data (zones, security, places, sources, geo-reference)
+- `data/osm/`, `tools/osm/`: the OpenStreetMap extracts and the scripts that fetch them and build `js/outlines.js`
 - `js/app.js`: map, routing, trips, live location and compass
 - `vendor/`: MapLibre GL JS 4.7.1 (BSD-3-Clause) for the street map
 - `sw.js`, `manifest.webmanifest`, `icons/`: offline support and home screen install
@@ -32,4 +36,6 @@ No build step: open `index.html` through any static web server, for example `pyt
 
 ## Adding an airport
 
-Add an entry to `AIRPORTS` in `js/airports.js` and its key to `AIRPORT_LIST`. Each entry needs walkable `areas` (rectangles in metres), `gates` (with the side the aircraft parks on), `pois`, `sources`, and a `geo` anchor (a map point, its latitude and longitude, and the compass bearing of the map's "up").
+1. Add the airport's box to `tools/osm/fetch_overture.py` and run it.
+2. Add it to `AIRPORTS` in `tools/osm/build.py`: an anchor point, the compass bearing for the map's "up", the OpenStreetMap ids of the terminal buildings, and how to split them into zones (airside, landside, floors). Run `python3 tools/osm/build.py --plot` and check the picture in `tools/osm/out/`.
+3. Add an entry to `AIRPORTS` in `js/airports.js` and its key to `AIRPORT_LIST`, using `OUTLINES.<KEY>` for `geo`, `areas` and `gates`, plus security, `pois` and `sources`. Map units are metres from the anchor.

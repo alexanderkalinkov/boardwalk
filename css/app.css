@@ -63,6 +63,7 @@ button{cursor:pointer}
 #map .lbl1,#map .lbl2{display:none}
 #map.z1 .lbl1{display:inline}
 #map.z2 .lbl2{display:inline}
+#map:not(.zt) .poi.wc:not(.sel){display:none} /* toilets appear once you zoom in */
 #scale{position:absolute;left:16px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:3;font-size:11px;font-weight:600;color:var(--fg2);pointer-events:none}
 #scale i{display:block;height:4px;border:2px solid var(--fg2);border-top:none;margin-top:2px}
 /* Android / Google Maps look */
@@ -214,7 +215,7 @@ button{cursor:pointer}
 #map{z-index:1}
 #attrib{position:absolute;right:12px;bottom:calc(84px + env(safe-area-inset-bottom,0px));z-index:3;font-size:10px;color:var(--fg3);background:var(--glass);padding:1px 6px;border-radius:6px}
 #attrib a{color:inherit;text-decoration:none}
-body:not(.hasbase) #attrib{display:none}
+body:not(.hasbase) #attrib .ofm{display:none}
 #north{position:absolute;left:12px;bottom:calc(112px + env(safe-area-inset-bottom,0px));z-index:3;width:30px;height:30px;border-radius:15px;display:grid;place-items:center;background:var(--glass-strong);box-shadow:var(--shadow);color:var(--fg)}
 
 /* lining up the plan with the street map */
